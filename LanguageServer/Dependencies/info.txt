@@ -1,1 +1,1 @@
-
+Use code to install everything in the dependencies folder, it is required for the LanguageServer.
