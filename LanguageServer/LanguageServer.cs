@@ -35,11 +35,11 @@ using WebSocketSharp.Server;
 
 namespace LanguageServer
 {
-	public class Dependencies
+    public class Dependencies
     {
         const string Luau_Analyze = "https://github.com/223Win/LuauMonacoEditor/raw/main/LanguageServer/Dependencies/luau-analyze.exe";
         const string Luau_Compile = "https://github.com/223Win/LuauMonacoEditor/raw/main/LanguageServer/Dependencies/luau-compile.exe";
-        
+
         public void InstallDependencies()
         {
             using (WebClient Client = new WebClient())
@@ -98,7 +98,7 @@ namespace LanguageServer
             public bool ComparisonPrecedence { get; set; }
         }
 
-        
+
         //--// Important Regex //--//
 
         const string ErrorPosNameRegex = @"(.*:)";
@@ -117,7 +117,7 @@ namespace LanguageServer
 
         public struct Position
         {
-            public int Line { get; set ; }
+            public int Line { get; set; }
             public int Column { get; set; }
         }
 
@@ -174,43 +174,50 @@ namespace LanguageServer
             Lint.ComparisonPrecedence = true;
 
             return Lint;
-            
+
         }
 
-        private async Task<AnalyzeData> AnalyzeResult(string Data)
+        private async Task<AnalyzeData?> AnalyzeResult(string Data)
         {
 
-            
-            MatchCollection PosAndName = ErrorPosName.Matches(Data);
-            string DataForPosAndName = PosAndName[0].Value;
-            string ErrorNameData = ErrorName.Matches(DataForPosAndName)[0].Value;
-            string PosComasData = ErrorPos.Matches(DataForPosAndName)[0].Value;
-            MatchCollection PositionDatas = NumberObtain.Matches(PosComasData);
 
-            //--// Enough Data is created //--//
+            try
+            {
+                MatchCollection PosAndName = ErrorPosName.Matches(Data);
+                string DataForPosAndName = PosAndName[0].Value;
+                string ErrorNameData = ErrorName.Matches(DataForPosAndName)[0].Value;
+                string PosComasData = ErrorPos.Matches(DataForPosAndName)[0].Value;
+                MatchCollection PositionDatas = NumberObtain.Matches(PosComasData);
 
-            //--// Creating Data Struct //--//
+                //--// Enough Data is created //--//
 
-            AnalyzeData DATA = new AnalyzeData();
-            ErrorData EDATA = new ErrorData();
-            Position PDATA = new Position();
-            PDATA.Line = int.Parse(PositionDatas[0].Value);
-            PDATA.Column = int.Parse(PositionDatas[1].Value);
-            EDATA.ErrorName = ErrorNameData;
-            EDATA.ErrorDescription = ErrorText.Matches(Data)[0].Value;
-            DATA.ErrorInfo = EDATA;
-            DATA.Position = PDATA;
+                //--// Creating Data Struct //--//
 
-            return DATA;
+                AnalyzeData DATA = new AnalyzeData();
+                ErrorData EDATA = new ErrorData();
+                Position PDATA = new Position();
+                PDATA.Line = int.Parse(PositionDatas[0].Value);
+                PDATA.Column = int.Parse(PositionDatas[1].Value);
+                EDATA.ErrorName = ErrorNameData;
+                EDATA.ErrorDescription = ErrorText.Matches(Data)[0].Value;
+                DATA.ErrorInfo = EDATA;
+                DATA.Position = PDATA;
+
+                return DATA;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
-        public async Task<List<AnalyzeData>> GetErrors(string Source)
+        public async Task<List<AnalyzeData?>> GetErrors(string Source)
         {
             Dependencies dependencies = new Dependencies();
 
             await Task.Run(() => dependencies.InstallDependencies());
 
-            List<AnalyzeData> CoreResult = new List<AnalyzeData>();
+            List<AnalyzeData?> CoreResult = new List<AnalyzeData?>();
 
             string filepath = "GetErrorSource.txt";
             byte[] converted = Encoding.UTF8.GetBytes(Source);
@@ -264,13 +271,13 @@ namespace LanguageServer
             return CoreResult;
         }
 
-        public async Task<List<AnalyzeData>> AnalyzeSource(string Source)
+        public async Task<List<AnalyzeData?>> AnalyzeSource(string Source)
         {
             Dependencies dependencies = new Dependencies();
 
             await Task.Run(() => dependencies.InstallDependencies());
 
-            List<AnalyzeData> CoreResult = new List<AnalyzeData>();
+            List<AnalyzeData?> CoreResult = new List<AnalyzeData?>();
 
             string filePath = "AnalyzeSource.txt";
             byte[] converted = Encoding.UTF8.GetBytes(Source);
@@ -298,7 +305,7 @@ namespace LanguageServer
                     {
                         return;
                     }
-                    
+
 
                     CoreResult.Add(AnalyzeResult(e.Data).Result);
                 };
@@ -329,8 +336,8 @@ namespace LanguageServer
 
             List<CompletedErrorData> IDEData = new List<CompletedErrorData>();
 
-            List<AnalyzeData> ErrorInfo = await GetErrors(SourceCode);
-            List<AnalyzeData> WarningInfo = await AnalyzeSource(SourceCode);
+            List<AnalyzeData?> ErrorInfo = await GetErrors(SourceCode);
+            List<AnalyzeData?> WarningInfo = await AnalyzeSource(SourceCode);
 
             foreach (AnalyzeData Error in ErrorInfo)
             {
@@ -379,7 +386,7 @@ namespace LanguageServer
 
         internal static Luau LUAU = new Luau();
 
-        internal class LanguageServerSocket: WebSocketBehavior
+        internal class LanguageServerSocket : WebSocketBehavior
         {
             protected override void OnMessage(MessageEventArgs Content)
             {
@@ -397,4 +404,4 @@ namespace LanguageServer
             Server.Start();
         }
     }
-} 
+}
