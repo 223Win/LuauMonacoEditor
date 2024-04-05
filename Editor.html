@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
+
 	<style type="text/css">
 		:root {
-			/* replace 'img_url' with your animated image or regular image link */
 			--url: url("");
 		}
 
@@ -42,13 +42,24 @@
 
 <body>
 	<div id="container" style="width:100%;height:100%;"></div>
+
+	<script type="module">
+		const { spawn } = require('child_process');
+	</script>
+
 	<script src="vs/loader.js"></script>
+
 	<script type="text/javascript">
+
+
+
 		require.config({
 			paths: {
 				'vs': 'vs',
 			}
 		});
+
+
 
 		// API
 		var GetText;
@@ -74,6 +85,9 @@
 		// Variables
 		var editor;
 		var Proposals = [];
+		var AutoCompleteExcludes = [];
+
+		//--// IntelliSense Functions //--//
 
 		require(['vs/editor/editor.main'], function () {
 			function getDependencyProposals() {
@@ -81,16 +95,129 @@
 				for (let index = 0; index < Proposals.length; index++) {
 					const element = Proposals[index];
 					let newElement = {}
+					let skipping = false
+					for (const key in AutoCompleteExcludes) {
+						if (AutoCompleteExcludes[key] == element.label) {
+							skipping = true
+						}
+					}
+
+					if (skipping == true) {
+						continue
+					}
+
 					for (const key in element) {
 						if (key == "__children__") {
 							continue;
 						};
+
 						newElement[key] = element[key];
 					}
+
 					newProposals.push(newElement)
 				}
 				return newProposals;
 			}
+
+			StringLimit = function (str) {
+				const string = str.toString()
+
+				const letter1 = string.charAt(0);
+				const letter2 = string.charAt(1);
+				const letter3 = string.charAt(2);
+				const letter4 = string.charAt(3);
+				const letter5 = string.charAt(4);
+
+
+
+				return letter1 + letter2 + letter3 + letter4 + letter5;
+			}
+
+			HSVToRGB = function (h, s, v) {
+				h *= 360;
+				let c = v * s;
+				let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+				let m = v - c;
+				let r, g, b;
+				if (h >= 0 && h < 60) { r = c; g = x; b = 0; } else if (h >= 60 && h < 120) { r = x; g = c; b = 0; } else if (h >= 120 && h < 180) { r = 0; g = c; b = x; } else if (h >= 180 && h < 240) { r = 0; g = x; b = c; } else if (h >= 240 && h < 300) { r = x; g = 0; b = c; } else if (h >= 300 && h < 360) { r = c; g = 0; b = x; }
+				return [(r + m), (g + m), (b + m)];
+			}
+
+			GetColors = function () {
+
+				//--// Constant REGEX's //--//
+
+				const Color3NewReg = /Color3\.new\(\s*?(\d+\.\d+|\d+)\s*?,\s*?(\d+\.\d+|\d+)\s*?,\s*?(\d+\.\d+|\d+)\s*?\)/g;
+				const Color3FromRGBReg = /Color3\.fromRGB\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)/g;
+				const Color3FromHSVReg = /Color3\.fromHSV\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)/g;
+				const Color3FromHexReg = /Color3\.fromHex\(["].*["]\)/g;
+				if (editor) {
+					var IModel = editor.getModel();
+					var Color3NewResult = IModel.findMatches(Color3NewReg, true, true, false, null, true);
+					var Color3RGBResult = IModel.findMatches(Color3FromRGBReg, true, true, false, null, true);
+					var Color3HSVResult = IModel.findMatches(Color3FromHSVReg, true, true, false, null, true);
+					var Color3HEXResult = IModel.findMatches(Color3FromHexReg, true, true, false, null, true);
+					//--// Note //--//
+					//--// Auto Set Alpha to 1 To prevent ColorProvider Issues //--//
+					const DATA = []
+					for (const key in Color3NewResult) {
+
+						const VALUE = Color3NewResult[key]
+						const Match = VALUE.matches[0]
+						const ColorMatches = Match.match(/\d+\.\d+|\d+/g)
+						const Range = VALUE.range
+						const Data = {
+							color: { red: ColorMatches[1], green: ColorMatches[2], blue: ColorMatches[3], alpha: 1, type: "new" },
+							range: Range,
+						}
+						DATA.push(Data)
+					}
+					for (const key in Color3RGBResult) {
+						const VALUE = Color3RGBResult[key]
+						const Match = VALUE.matches[0]
+						const ColorMatches = Match.match(/\d+/g)
+						const Range = VALUE.range
+
+						const Data = {
+							color: { red: ColorMatches[1] / 255, green: ColorMatches[2] / 255, blue: ColorMatches[3] / 255, alpha: 1 },
+							range: Range
+						}
+						DATA.push(Data)
+					}
+
+					for (const key in Color3HSVResult) {
+						const VALUE = Color3HSVResult[key]
+						const Match = VALUE.matches[0]
+						const ColorMatches = Match.match(/\d+/g)
+						const Range = VALUE.range
+						const RealColorMatches = HSVToRGB(ColorMatches[1], ColorMatches[2], ColorMatches[3])
+						const Data = {
+							color: { red: RealColorMatches[0], green: RealColorMatches[1], blue: RealColorMatches[2], alpha: 1 },
+							range: Range
+						}
+						DATA.push(Data)
+					}
+
+					for (const key in Color3HEXResult) {
+						const VALUE = Color3HEXResult[key]
+						const Match = VALUE.matches[0]
+						const ColorMatches = Match.match(/[\S*]/g)
+						const Range = VALUE.range
+						const Data = {
+							color: { red: 255, green: 255, blue: 255, alpha: 1 },
+							range: Range
+						}
+						DATA.push(Data)
+					}
+
+					return DATA
+				}
+				else {
+					return []
+				}
+			}
+
+			//--// Editor Data //--//
 
 			monaco.editor.defineTheme('net-theme-light', {
 				base: 'vs',
@@ -181,6 +308,8 @@
 					{ token: 'support.function', foreground: '#0DB9D7' },
 					{ token: 'support.function.library', foreground: '#0DB9D7' },
 					{ token: 'support.type', foreground: '#5ab6d6' },
+
+					{ token: "Color", foreground: "#41BBD9" }
 				],
 				colors: {
 					'editor.background': '#262626',
@@ -221,7 +350,10 @@
 					links: true,
 					minimap: {
 						enabled: true,
-
+					},
+					inlineSuggest: {
+						enabled: true,
+						suppressSuggestions: false,
 					},
 					showFoldingControls: "always",
 					smoothScrolling: false,
@@ -283,6 +415,41 @@
 
 				editor.getModel().updateOptions({ insertSpaces: false })
 			});
+
+			monaco.languages.registerColorProvider("lua", {
+				provideColorPresentations: (model, colorInfo) => {
+					var color = colorInfo.color;
+					color.type = color.type;
+					color.alpha = 1;
+
+					var red256 = Math.round(color.red * 255);
+					var green256 = Math.round(color.green * 255);
+					var blue256 = Math.round(color.blue * 255);
+					var label;
+					if (editor._GlobalSettings.ColorServiceFormat === ".new") {
+						label = "Color3.new(" + StringLimit(red256 / 255) + "," + StringLimit(green256 / 255) + "," + StringLimit(blue256 / 255) + ")"
+					}
+					else if (editor._GlobalSettings.ColorServiceFormat === ".rgb") {
+						label = "Color3.fromRGB(" + red256 + "," + green256 + "," + blue256 + ")"
+					}
+					else {
+						label = "Color3.fromRGB(" + red256 + "," + green256 + "," + blue256 + ")"
+					}
+
+
+					return [
+						{
+							label: label,
+						},
+					];
+				},
+
+				provideDocumentColors: () => {
+					return GetColors();
+				},
+			});
+
+			var MonacoEditor = editor;
 
 			window.onresize = function () {
 				editor.layout();
@@ -426,6 +593,18 @@
 				});
 			}
 
+			SetGlobalSetting = function (GlobalSetting, Value) {
+				if (editor) {
+					if (editor._GlobalSettings) {
+						editor._GlobalSettings[GlobalSetting] = Value
+					}
+					else {
+						console.warn("Global Settings have not loaded yet. Please Wait!")
+					}
+				}
+			}
+
+
 			ShowErr = function (line, column, endline, endcolumn, errMessage) {
 				editor.revealPositionInCenter({ lineNumber: line, column: column });
 				editor.deltaDecorations([], [
@@ -475,6 +654,45 @@
 				setText("");
 				editor.trigger('keyboard', 'type', { text: text });
 			}
+
+			FindNameInExclude = function (Name) {
+				for (const n in AutoCompleteExcludes) {
+					if (n == Name) {
+						return true
+					}
+				}
+				return false
+			}
+
+			AddNameToExclude = function (Name) {
+				if (FindNameInExclude(Name) == false) {
+					AutoCompleteExcludes.push(Name)
+				}
+			}
+
+			RemoveNameFromExclude = function (Name) {
+				if (FindNameInExclude(Name) == true) {
+					AutoCompleteExcludes.splice(AutoCompleteExcludes.findIndex(n => n === name), 1)
+				}
+			}
+
+
+			async function InitMonaco() {
+				//--// Wait Until Monaco Loads //--//
+				if (editor) {
+
+					editor._GlobalSettings = {};
+					SetGlobalSetting("ColorServiceFormat", ".new")
+
+					console.log(editor)
+
+				}
+				else {
+					setTimeout(InitMonaco, 100)
+				}
+			}
+
+			InitMonaco()
 
 		});
 	</script>
