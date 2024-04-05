@@ -1,3 +1,11 @@
+//--// Type: CS Class //--//
+
+/////////////////////////
+//--// Shadow Corp //--//
+//--//    2024     //--//
+/////////////////////////
+
+
 //--// System Dependencies //--//
 
 using System;
@@ -387,21 +395,6 @@ namespace LanguageServer
             Server.AddWebSocketService<LanguageServerSocket>("/");
 
             Server.Start();
-        }
-    }
-
-
-    static class Program
-    {
-        static void Main()
-        {
-            LanguageServer LangServer = new LanguageServer();
-
-
-            const string ServerUrl = ""; //--// Put your server url here that you want to host the langauge server on. //--//
-
-            LangServer.StartLanguageServer(ServerUrl);
-
         }
     }
 } 
