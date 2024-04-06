@@ -390,17 +390,32 @@ namespace LanguageServer
         {
             protected override void OnMessage(MessageEventArgs Content)
             {
-                string SourceCode = Content.Data;
-                object ReturnedIDEInfo = LUAU.GetFullIDEInfo(SourceCode).Result;
+                try
+                {
+                    string SourceCode = Content.Data;
+                    List<Luau.CompletedErrorData> Data = LUAU.GetFullIDEInfo(SourceCode).Result;
 
-                Send(JsonConvert.SerializeObject(ReturnedIDEInfo));
+                    if (Data != null)
+                    {
+                        Send(JsonConvert.SerializeObject(Data));
+                    }
+                    else
+                    {
+                        Send("No Errors");
+                    }
+                    
+                }
+                catch
+                {
+                    Send("No Errors");
+                }
             }
         }
         public void StartLanguageServer(string URL)
         {
             WebSocketServer Server = new WebSocketServer(URL);
             Server.AddWebSocketService<LanguageServerSocket>("/");
-
+            Server.ReuseAddress = true;
             Server.Start();
         }
     }
