@@ -80,14 +80,64 @@
 
         // Variables
         var editor;
+        var LuauData = [];
         var Proposals = [];
+        var Variables = [];
         var AutoCompleteExcludes = [];
+
 
         //--// IntelliSense Functions //--//
 
         require(['vs/editor/editor.main'], function () {
-            function getDependencyProposals() {
+
+            function getDependencyProposals(positioninfo) {
+                let Model = editor.getModel()
                 let newProposals = [];
+
+                var FToken = CleanVariableContextTable(Model.getValueInRange({ startLineNumber: 1, startColumn: 1, endLineNumber: positioninfo.lineNumber, endColumn: positioninfo.column }).split(/\n|\w/))
+
+                let VariableAddContext = FToken[FToken.length - 1] == '.'
+
+                if (Proposals.length == 0 || Proposals[0].__scope__ && Proposals[0].__scope__ == "root") {
+                    var varresult = GetEditorVariables()
+
+                    let pos = editor.getPosition()
+                    let token = Model.getWordAtPosition(pos);
+                    let ctoken = Model.getWordUntilPosition(pos)
+
+                    for (const key in varresult) {
+                        let matchname = varresult[key].matches[0]
+
+                        //--// Prevent Provider to show when typing variable. //--//
+
+                        if (token && matchname == token.word) {
+                            continue
+                        }
+
+                        if (token == null) {
+                            continue
+                        }
+                        if (VariableAddContext == true) {
+                            continue
+                        }
+                        let d = {}
+
+                        d.label = matchname
+                        d.insertText = matchname
+                        d.sortText = matchname
+                        d.kind = 4
+                        d.__scope__ = matchname
+                        d.__children__ = []
+                        d.documentation = {
+                            value: [
+                                "```lua\nlocal " + matchname + "\n```",
+                                "Defined at Line: " + varresult[key].range.startLineNumber
+                            ].join("\n")
+                        }
+                        newProposals.push(d)
+                    }
+                    Variables = varresult
+                }
                 for (let index = 0; index < Proposals.length; index++) {
                     const element = Proposals[index];
                     let newElement = {}
@@ -117,7 +167,30 @@
 
                     newProposals.push(newElement)
                 }
+
                 return newProposals;
+            }
+
+            CleanVariableContextTable = function (List) {
+                let newlist = []
+                for (const key in List) {
+                    if (List[key] != "") {
+                        newlist.push(List[key])
+                    }
+                }
+                return newlist
+            }
+
+            GetEditorVariables = function () {
+                const VariableFinderRegex = /(?<=local\s)[a-zA-Z1-9_]+/
+                if (editor) {
+                    var IModel = editor.getModel();
+                    var result = IModel.findMatches(VariableFinderRegex, true, true, false, null, true)
+                    return result
+                }
+                else {
+                    return []
+                }
             }
 
             StringLimit = function (str) {
@@ -220,6 +293,15 @@
 
             //--// Editor Data //--//
 
+
+            monaco.languages.register({ id: "luau" })
+
+            require(["vs/basic-languages/lua/lua.js"], function (langinfo) {
+
+                monaco.languages.setMonarchTokensProvider("luau", langinfo.language)
+                monaco.languages.setLanguageConfiguration("luau", langinfo.conf)
+            })
+
             monaco.editor.defineTheme('net-theme-light', {
                 base: 'vs',
                 inherit: true,
@@ -258,6 +340,7 @@
 
                     { token: 'keyword', foreground: '#BB9AF7' },
                     { token: 'keyword.local', foreground: '#997BD6', fontStyle: 'italic' },
+
                     { token: 'keyword.operator', foreground: '#89DDFF' },
                     { token: 'keyword.operator.type.annotation', foreground: '#9ABDF5' },
                     { token: 'keyword.operator.typedef.annotation', foreground: '#89DDFF' },
@@ -309,14 +392,8 @@
                     { token: 'support.function', foreground: '#0DB9D7' },
                     { token: 'support.function.library', foreground: '#0DB9D7' },
                     { token: 'support.type', foreground: '#5ab6d6' },
-
-                    { token: "Color", foreground: "#41BBD9" }
                 ],
                 colors: {
-                    'editor.background': '#262626',
-
-                    'editorLineNumber.foreground': '#7A7A7A',
-                    'editorLineNumber.activeForeground': '#BBBBBB',
 
                     'editorIndentGuide.background': '#1a1a1a',
 
@@ -330,12 +407,15 @@
                 }
             });
 
+
+
             require(['vs/basic-languages/monaco.contribution'], function () {
+
 
 
                 editor = monaco.editor.create(document.getElementById('container'), {
                     value: '-- Thanks for using Luau2 --',
-                    language: 'lua',
+                    language: 'luau',
                     theme: "Core",
                     fontSize: "14px",
                     fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
@@ -345,50 +425,15 @@
                     minimap: {
                         enabled: true,
                     },
-                    inlineSuggest: {
-                        enabled: true,
-                        suppressSuggestions: false,
-                    },
                     showFoldingControls: "always",
                     smoothScrolling: false,
                     stopRenderingLineAfter: 6500,
                     cursorBlinking: "smooth",
                     cursorSmoothCaretAnimation: true,
-                    foldingHighlight: false,
-                    fontLigatures: true,
                     formatOnPaste: true,
                     showDeprecated: true,
                     snippetSuggestions: "inline",
-                    suggest: {
-                        snippetsPreventQuickSuggestions: false,
-                        preview: true,
-                        showClasses: true,
-                        showColors: true,
-                        showConstants: true,
-                        showConstructors: true,
-                        showEnumMembers: true,
-                        showEnums: true,
-                        showEvents: true,
-                        showFields: true,
-                        showFunctions: true,
-                        showIcons: true,
-                        showIssues: true,
-                        showKeywords: true,
-                        showMethods: true,
-                        showModules: true,
-                        showStatusBar: true,
-                        showOperators: true,
-                        showProperties: true,
-                        showReferences: true,
-                        showSnippets: true,
-                        showStructs: true,
-                        showTypeParameters: true,
-                        showUnits: true,
-                        showUsers: true,
-                        showValues: true,
-                        showVariables: true,
-                        showWords: true,
-                    },
+
                     autoIndent: "full",
                     padding: {
                         top: 24,
@@ -410,16 +455,16 @@
                 editor.getModel().updateOptions({ insertSpaces: false })
             });
 
-            monaco.languages.registerCompletionItemProvider('lua', {
+            monaco.languages.registerCompletionItemProvider('luau', {
                 provideCompletionItems: function (model, position) {
                     return {
-                        suggestions: getDependencyProposals(),
+                        suggestions: getDependencyProposals(position),
                     };
                 },
                 triggerCharacters: ['.', ':', '"'],
             });
 
-            monaco.languages.registerColorProvider("lua", {
+            monaco.languages.registerColorProvider("luau", {
                 provideColorPresentations: (model, colorInfo) => {
                     var color = colorInfo.color;
                     color.type = color.type;
@@ -453,25 +498,20 @@
             });
 
             CreateCompilerForMonaco = function () {
-                const ErrorEnumTable = {
-                    "Error": "squiggly-error",
-                    "Warning": "squiggly-warning",
-                }
                 ConvertDataTableToErrorTable = function (Data) {
                     let ConvertedData = []
 
                     for (const key in Data) {
                         let ValObject = Data[key]
                         let addItem = {}
+                        addItem.message = ValObject.Data.ErrorInfo.ErrorName + " \n " + ValObject.Data.ErrorInfo.ErrorDescription
+                        addItem.startLineNumber = ValObject.Data.Position.Line,
+                            addItem.startColumn = ValObject.Data.Position.Column,
+                            addItem.endLineNumber = ValObject.Data.Position.Line,
+                            addItem.endColumn = ValObject.Data.Position.Column,
+                            addItem.severity = monaco.MarkerSeverity[ValObject.ErrorType]
 
-                        addItem.range = new monaco.Range(ValObject.Data.Position.Line, ValObject.Data.Position.Column, ValObject.Data.Position.Line, ValObject.Data.Position.Column)
-                        addItem.options = {
-                            hoverMessage: {
-                                value: ValObject.Data.ErrorInfo.ErrorName + "\n" + ValObject.Data.ErrorInfo.ErrorDescription
-                            },
-                            inlineClassName: ErrorEnumTable[ValObject.ErrorType],
 
-                        }
 
                         ConvertedData.push(addItem)
 
@@ -490,14 +530,10 @@
                     Socket.onopen = function () {
                         console.warn("LanguageServer Socket Connected.")
                         Socket.onmessage = function (d) {
-                            if (d.data == "No Errors") {
-                                if (editor) {
-                                    editor.deltaDecorations([], [])
-                                }
-                            }
+                            if (d.data == "No Errors") { if (editor) { UpdateErrors([]) } }
                             else {
                                 if (editor) {
-                                    console.log(editor.deltaDecorations([], ConvertDataTableToErrorTable(JSON.parse(d.data))))
+                                    UpdateErrors(ConvertDataTableToErrorTable(JSON.parse(d.data)))
                                 }
                             }
                         }
@@ -514,10 +550,11 @@
                     LastInput = Date.now()
 
                     setTimeout(() => {
-                        if (Date.now() - LastInput > 2000) {
+                        if (Date.now() - LastInput > 500) {
+                            console.log("sending data")
                             Socket.send(editor.getValue())
                         }
-                    }, 2500)
+                    }, 500)
                 })
 
 
@@ -525,6 +562,14 @@
 
             window.onresize = function () {
                 editor.layout();
+            }
+
+            UpdateErrors = function (ErrorData) {
+                if (editor) {
+                    let MODEL = editor.getModel()
+                    console.log(MODEL, ErrorData)
+                    monaco.editor.setModelMarkers(MODEL, "lua", ErrorData)
+                }
             }
 
             Cut = function () {
@@ -592,8 +637,8 @@
             }
 
             SetTheme = function (themeName) {
-                if (themeName == 'PDark') {
-                    monaco.editor.setTheme('PDark')
+                if (themeName == 'Core') {
+                    monaco.editor.setTheme('Core')
                 }
                 if (themeName == "Dark") {
                     monaco.editor.setTheme("net-theme-dark");
@@ -755,6 +800,7 @@
 
                     editor._GlobalSettings = {};
                     SetGlobalSetting("ColorServiceFormat", ".new")
+                    console.log(editor)
                     CreateCompilerForMonaco()
                 }
                 else {
