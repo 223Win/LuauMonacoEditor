@@ -2,20 +2,16 @@
 
 /////////////////////////
 //--// Shadow Corp //--//
-//--//    2024     //--//
+//--//     2024    //--//
 /////////////////////////
 
 
 //--// System Dependencies //--//
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 //--// External Dependencies //--//
 
@@ -33,25 +29,23 @@ using WebSocketSharp.Server;
 
 //--// Main Code //--//
 
-namespace LanguageServer
+namespace Syn_Killer_Editor
 {
     public class Dependencies
     {
-        const string Luau_Analyze = "https://github.com/223Win/LuauMonacoEditor/raw/main/LanguageServer/Dependencies/luau-analyze.exe";
-        const string Luau_Compile = "https://github.com/223Win/LuauMonacoEditor/raw/main/LanguageServer/Dependencies/luau-compile.exe";
+        private const string Luau_Analyze = "https://github.com/223Win/LuauMonacoEditor/raw/main/LanguageServer/Dependencies/luau-analyze.exe";
+        private const string Luau_Compile = "https://github.com/223Win/LuauMonacoEditor/raw/main/LanguageServer/Dependencies/luau-compile.exe";
 
         public void InstallDependencies()
         {
-            using (WebClient Client = new WebClient())
+            using WebClient Client = new();
+            if (File.Exists("LuauAnalyze.exe") == false)
             {
-                if (File.Exists("LuauAnalyze") == false)
-                {
-                    Client.DownloadFile(Luau_Analyze, "LuauAnalyze.exe");
-                }
-                if (File.Exists("LuauCompile") == false)
-                {
-                    Client.DownloadFile(Luau_Compile, "LuauCompile.exe");
-                }
+                Client.DownloadFile(Luau_Analyze, "LuauAnalyze.exe");
+            }
+            if (File.Exists("LuauCompile.exe") == false)
+            {
+                Client.DownloadFile(Luau_Compile, "LuauCompile.exe");
             }
         }
     }
@@ -101,17 +95,15 @@ namespace LanguageServer
 
         //--// Important Regex //--//
 
-        const string ErrorPosNameRegex = @"(.*:)";
-        const string ErrorPosRegex = @"(?<=\().*(?=\))";
-        const string ErrorNameRegex = @"(?<=:\s).*(?=\s?:)";
-        const string ErrorTextRegex = @"(?!.*:)\S+.*";
-
-
-        Regex ErrorPosName = new Regex(ErrorPosNameRegex);
-        Regex ErrorPos = new Regex(ErrorPosRegex);
-        Regex ErrorName = new Regex(ErrorNameRegex);
-        Regex ErrorText = new Regex(ErrorTextRegex);
-        Regex NumberObtain = new Regex(@"\d+");
+        private const string ErrorPosNameRegex = @"(.*:)";
+        private const string ErrorPosRegex = @"(?<=\().*(?=\))";
+        private const string ErrorNameRegex = @"(?<=:\s).*(?=\s?:)";
+        private const string ErrorTextRegex = @"(?!.*:)\S+.*";
+        private readonly Regex ErrorPosName = new(ErrorPosNameRegex);
+        private readonly Regex ErrorPos = new(ErrorPosRegex);
+        private readonly Regex ErrorName = new(ErrorNameRegex);
+        private readonly Regex ErrorText = new(ErrorTextRegex);
+        private readonly Regex NumberObtain = new(@"\d+");
 
         //--// Structures //--//
 
@@ -140,27 +132,29 @@ namespace LanguageServer
         }
         public LintingChecks CreateLintingChecks()
         {
-            LintingChecks Lint = new LintingChecks();
-            //--// Set all Lint Values to default of "True" //--//
+            LintingChecks Lint = new()
+            {
+                //--// Set all Lint Values to default of "True" //--//
 
-            Lint.UnknownGlobal = true;
-            Lint.DeprecatedGlobal = true;
-            Lint.GlobalUsedAsLocal = true;
-            Lint.LocalShadow = true;
-            Lint.SameLineStatement = true;
-            Lint.MultiLineStatement = true;
-            Lint.LocalUnused = true;
-            Lint.FunctionUnused = true;
-            Lint.ImportUnused = true;
-            Lint.BuiltinGlobalWrite = true;
-            Lint.PlaceholderRead = true;
-            Lint.UnreachableCode = true;
-            Lint.UnknownType = true;
-            Lint.ForRange = true;
-            Lint.UnbalancedAssignment = true;
-            Lint.ImplicitReturn = true;
-            Lint.DuplicateLocal = true;
-            Lint.FormatString = true;
+                UnknownGlobal = true,
+                DeprecatedGlobal = true,
+                GlobalUsedAsLocal = true,
+                LocalShadow = true,
+                SameLineStatement = true,
+                MultiLineStatement = true,
+                LocalUnused = true,
+                FunctionUnused = true,
+                ImportUnused = true,
+                BuiltinGlobalWrite = true,
+                PlaceholderRead = true,
+                UnreachableCode = true,
+                UnknownType = true,
+                ForRange = true,
+                UnbalancedAssignment = true,
+                ImplicitReturn = true,
+                DuplicateLocal = true,
+                FormatString = true
+            };
             Lint.FormatString = true;
             Lint.TableLiteral = true;
             Lint.UninitializedLocal = true;
@@ -179,52 +173,49 @@ namespace LanguageServer
 
         private async Task<AnalyzeData?> AnalyzeResult(string Data)
         {
-
-
-            try
-            {
-                MatchCollection PosAndName = ErrorPosName.Matches(Data);
-                string DataForPosAndName = PosAndName[0].Value;
-                string ErrorNameData = ErrorName.Matches(DataForPosAndName)[0].Value;
-                string PosComasData = ErrorPos.Matches(DataForPosAndName)[0].Value;
-                MatchCollection PositionDatas = NumberObtain.Matches(PosComasData);
-
-                //--// Enough Data is created //--//
-
-                //--// Creating Data Struct //--//
-
-                AnalyzeData DATA = new AnalyzeData();
-                ErrorData EDATA = new ErrorData();
-                Position PDATA = new Position();
-                PDATA.Line = int.Parse(PositionDatas[0].Value);
-                PDATA.Column = int.Parse(PositionDatas[1].Value);
-                EDATA.ErrorName = ErrorNameData;
-                EDATA.ErrorDescription = ErrorText.Matches(Data)[0].Value;
-                DATA.ErrorInfo = EDATA;
-                DATA.Position = PDATA;
-
-                return DATA;
-            }
-            catch
+            if ((Data.Contains("AnalyzeSource.txt") || Data.Contains("GetErrorSource.txt")) == false)
             {
                 return null;
             }
+            MatchCollection PosAndName = ErrorPosName.Matches(Data);
+            string DataForPosAndName = PosAndName[0].Value;
+            string ErrorNameData = ErrorName.Matches(DataForPosAndName)[0].Value;
+            string PosComasData = ErrorPos.Matches(DataForPosAndName)[0].Value;
+            MatchCollection PositionDatas = NumberObtain.Matches(PosComasData);
+
+            //--// Enough Data is created //--//
+
+            //--// Creating Data Struct //--//
+
+            AnalyzeData DATA = new();
+            ErrorData EDATA = new();
+            Position PDATA = new()
+            {
+                Line = int.Parse(PositionDatas[0].Value),
+                Column = int.Parse(PositionDatas[1].Value)
+            };
+            EDATA.ErrorName = ErrorNameData;
+            EDATA.ErrorDescription = ErrorText.Matches(Data)[0].Value;
+            DATA.ErrorInfo = EDATA;
+            DATA.Position = PDATA;
+
+            return DATA;
         }
 
         public async Task<List<AnalyzeData?>> GetErrors(string Source)
         {
-            Dependencies dependencies = new Dependencies();
+            Dependencies dependencies = new();
 
             await Task.Run(() => dependencies.InstallDependencies());
 
-            List<AnalyzeData?> CoreResult = new List<AnalyzeData?>();
+            List<AnalyzeData?> CoreResult = new();
 
             string filepath = "GetErrorSource.txt";
             byte[] converted = Encoding.UTF8.GetBytes(Source);
             File.WriteAllBytes(filepath, converted);
 
             string command = "LuauCompile.exe";
-            ProcessStartInfo PInfo = new ProcessStartInfo
+            ProcessStartInfo PInfo = new()
             {
                 FileName = command,
                 Arguments = filepath,
@@ -235,7 +226,7 @@ namespace LanguageServer
                 WorkingDirectory = Environment.CurrentDirectory,
             };
 
-            using (Process process = new Process())
+            using (Process process = new())
             {
                 process.StartInfo = PInfo;
 
@@ -261,7 +252,7 @@ namespace LanguageServer
                     CoreResult.Add(AnalyzeResult(e.Data).Result);
                 };
 
-                process.Start();
+                _ = process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
@@ -273,18 +264,18 @@ namespace LanguageServer
 
         public async Task<List<AnalyzeData?>> AnalyzeSource(string Source)
         {
-            Dependencies dependencies = new Dependencies();
+            Dependencies dependencies = new();
 
             await Task.Run(() => dependencies.InstallDependencies());
 
-            List<AnalyzeData?> CoreResult = new List<AnalyzeData?>();
+            List<AnalyzeData?> CoreResult = new();
 
             string filePath = "AnalyzeSource.txt";
             byte[] converted = Encoding.UTF8.GetBytes(Source);
             File.WriteAllBytes(filePath, converted);
 
             string command = $"LuauAnalyze.exe";
-            ProcessStartInfo PInfo = new ProcessStartInfo
+            ProcessStartInfo PInfo = new()
             {
                 FileName = command,
                 Arguments = filePath,
@@ -295,7 +286,7 @@ namespace LanguageServer
                 WorkingDirectory = Environment.CurrentDirectory,
             };
 
-            using (Process process = new Process())
+            using (Process process = new())
             {
                 process.StartInfo = PInfo;
 
@@ -320,7 +311,7 @@ namespace LanguageServer
 
                     CoreResult.Add(AnalyzeResult(e.Data).Result);
                 };
-                process.Start();
+                _ = process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
@@ -334,16 +325,18 @@ namespace LanguageServer
         public async Task<List<CompletedErrorData>> GetFullIDEInfo(string SourceCode)
         {
 
-            List<CompletedErrorData> IDEData = new List<CompletedErrorData>();
+            List<CompletedErrorData> IDEData = new();
 
             List<AnalyzeData?> ErrorInfo = await GetErrors(SourceCode);
             List<AnalyzeData?> WarningInfo = await AnalyzeSource(SourceCode);
 
             foreach (AnalyzeData Error in ErrorInfo)
             {
-                CompletedErrorData Data = new CompletedErrorData();
-                Data.Data = Error;
-                Data.ErrorType = "Error";
+                CompletedErrorData Data = new()
+                {
+                    Data = Error,
+                    ErrorType = "Error"
+                };
 
                 IDEData.Add(Data);
             }
@@ -363,9 +356,11 @@ namespace LanguageServer
                 {
                     continue;
                 }
-                CompletedErrorData Data = new CompletedErrorData();
-                Data.Data = Warning;
-                Data.ErrorType = "Warning";
+                CompletedErrorData Data = new()
+                {
+                    Data = Warning,
+                    ErrorType = "Warning"
+                };
                 IDEData.Add(Data);
 
             }
@@ -384,7 +379,7 @@ namespace LanguageServer
 
         //--// Do not touch Luau Class //--//
 
-        internal static Luau LUAU = new Luau();
+        internal static Luau LUAU = new();
 
         internal class LanguageServerSocket : WebSocketBehavior
         {
@@ -403,7 +398,7 @@ namespace LanguageServer
                     {
                         Send("No Errors");
                     }
-                    
+
                 }
                 catch
                 {
@@ -413,7 +408,7 @@ namespace LanguageServer
         }
         public void StartLanguageServer(string URL)
         {
-            WebSocketServer Server = new WebSocketServer(URL);
+            WebSocketServer Server = new(URL);
             Server.AddWebSocketService<LanguageServerSocket>("/");
             Server.ReuseAddress = true;
             Server.Start();
